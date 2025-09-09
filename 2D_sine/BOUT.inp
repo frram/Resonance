@@ -1,0 +1,35 @@
+timestep = 0.01   # Output timestep
+nout = 8000  	# Number of output steps
+
+MYG = 0 # No need for Y communication
+
+[mesh]
+
+nx = 260
+ny = 260
+nz = 1  # Periodic, so no guard cells in Z
+
+dy = 1.
+dz = 1.
+
+[hw]
+
+chi_not = 1e-5
+Delta = 0.04  # Used for convolution in .cxx file
+g = 0.5
+tau_ac = 0.125
+gamma = 0.06
+Kc = 0.1
+
+[T]
+function = x
+bndry_xin = constgradient
+bndry_xout = constgradient
+evolve_bndry = true
+
+
+[K]
+# 6 cells (periods) across x and y
+function = K0 * sin(2*pi*6*x) * sin(2*pi*6*y)
+K0 = 0.2
+bndry_all = neumann
