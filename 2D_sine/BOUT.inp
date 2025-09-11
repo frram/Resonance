@@ -1,5 +1,8 @@
-timestep = 0.01   # Output timestep
-nout = 8000  	# Number of output steps
+timestep = 1e-4   # Output timestep
+# mxstep = 20000
+# rtol = 1e-6
+# atol = 1e-10
+nout = 100  	# Number of output steps
 
 MYG = 0 # No need for Y communication
 
@@ -9,7 +12,9 @@ nx = 260
 ny = 260
 nz = 1  # Periodic, so no guard cells in Z
 
-dy = 1.
+MXG = 2
+MYG = 2
+
 dz = 1.
 
 [hw]

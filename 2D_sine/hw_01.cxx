@@ -30,12 +30,12 @@ protected:
 	OPTION(options, chi_not, 1e-5);
 	OPTION(options, Delta, 4e-2);
 	OPTION(options, g, 5e-1);
-  OPTION(options, tau_ac, 1.25e-1);
-  OPTION(options, gamma, 6e-2);
-  OPTION(options, Kc, 1e-1);
+  	OPTION(options, tau_ac, 1.25e-1);
+  	OPTION(options, gamma, 6e-2);
+  	OPTION(options, Kc, 1e-1);
 
 	SOLVE_FOR(T,K);
-  SAVE_REPEAT(chi_T);
+  	SAVE_REPEAT(chi_T);
 	return 0;
   }
 
@@ -73,6 +73,9 @@ protected:
   // Light post-smoothing (optional; do it AFTER the loops)
   chi_T = smooth_x(chi_T);
   chi_T = smooth_y(chi_T);
+
+  chi_T = max(chi_T, 1e-6);
+  chi_T = min(chi_T, 5e-2);
 
     // Evolve temperature using divergence of (chi * grad T)
     ddt(T) = FDDX(chi_T, DDX(T)) + FDDY(chi_T, DDY(T))  + chi_not * ( D2DX2(T) + D2DY2(T) );
