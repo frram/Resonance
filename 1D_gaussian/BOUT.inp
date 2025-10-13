@@ -1,11 +1,11 @@
-timestep = 0.01   # Output timestep
-nout = 8000  	# Number of output steps
+timestep = 1.0e-1   # Output timestep
+nout = 6000  	# Number of output steps
 
 MYG = 0 # No need for Y communication
 
 [mesh]
 
-nx = 260
+nx = 520
 ny = 1
 nz = 1  # Periodic, so no guard cells in Z
 
@@ -15,20 +15,31 @@ dz = 1.
 [hw]
 
 chi_not = 1e-5
-Delta = 0.04
+# Delta = 1/7    # Not used, but spacing between cells
 g = 0.5
 tau_ac = 0.125
 gamma = 0.06
 Kc = 0.1
+beta = 1e-1
+sigma = 1e-2
 
 [T]
-function = x
-# bndry_xin = dirichlet(0)
-bndry_xin = constgradient
-bndry_xout = constgradient
+A = 1.0
+function = A* x
+bndry_xin = constgradient(A)
+bndry_xout = constgradient(A)
 evolve_bndry = true
 
 
 [K]
-function = 0.75*0.04*sqrt(2*pi)*gauss((x-0.125),0.04) + 0.75*0.04*sqrt(2*pi)*gauss((x-0.375),0.04) + 0.75*0.04*sqrt(2*pi)*gauss((x-0.625),0.04) + 0.75*0.04*sqrt(2*pi)*gauss((x-0.875),0.04) 
+w = 0.04
+p = 6
+function = (
+    exp(-((x-1/7)/w)^p) +
+    exp(-((x-2/7)/w)^p) +
+    exp(-((x-3/7)/w)^p) + 
+    exp(-((x-4/7)/w)^p) + 
+    exp(-((x-5/7)/w)^p) + 
+    exp(-((x-6/7)/w)^p)
+) / 1.0
 bndry_all = neumann

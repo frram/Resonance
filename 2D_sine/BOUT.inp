@@ -28,8 +28,8 @@ Kc = 0.1
 
 [T]
 function = x
-bndry_xin = constgradient
-bndry_xout = constgradient
+bndry_xin = constgradient(1.0)
+bndry_xout = constgradient(1.0)
 evolve_bndry = true
 
 

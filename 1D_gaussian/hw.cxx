@@ -1,79 +1,86 @@
 #include <bout/derivs.hxx>
-#include <bout/invert_laplace.hxx>
 #include <bout/physicsmodel.hxx>
 #include <bout/smoothing.hxx>
-
+#include <cmath>
 
 class HW : public PhysicsModel {
 private:
-  Field3D T, K;  // Evolving density
-  Field3D chi_T; // chi_T from kernel
+  Field3D T, K;
+  Field3D chi_T, chi;
 
   // Model parameters
-  BoutReal chi_not; // Background diffusivity
-  BoutReal Delta;  // cell width
-  BoutReal g;       // curvature/buoyancy strength
-  BoutReal tau_ac;  // Autocorrelation timescale
-  BoutReal gamma;   // production of K 
-  BoutReal Kc;      // Nonlinear damping coefficient
+  BoutReal chi_not;
+  BoutReal g;
+  BoutReal tau_ac;
+  BoutReal gamma;
+  BoutReal Kc;
+  BoutReal beta;
+  BoutReal sigma;
 
-
-  // Gaussian kernel
-  inline BoutReal gaussian(BoutReal dx, Delta) {
-    return exp(-pow(dx,2) / (2.0 * Delta * Delta));
+  inline BoutReal gaussian(BoutReal dx) const {
+    return exp(-(dx * dx) / (2.0 * sigma * sigma));
   }
 
 protected:
-  int init(bool restart) {
+  int init(bool restart) override {
+    Options* options = Options::getRoot()->getSection("hw");
 
-	Options *options = Options::getRoot()->getSection("hw");
-	OPTION(options, chi_not, 1e-5);
-	OPTION(options, Delta, 4e-2);
-	OPTION(options, g, 5e-1);
-  OPTION(options, tau_ac, 1.25e-1);
-  OPTION(options, gamma, 6e-2);
-  OPTION(options, Kc, 1e-1);
+    OPTION(options, chi_not, 1e-5);
+    OPTION(options, g, 0.5);
+    OPTION(options, tau_ac, 0.125);
+    OPTION(options, gamma, 0.06);
+    OPTION(options, Kc, 0.1);
+    OPTION(options, beta, 0.1);
+    OPTION(options, sigma, 1e-2);
 
-	SOLVE_FOR(T,K);
-  SAVE_REPEAT(chi_T);
-	return 0;
+    SOLVE_FOR(T, K);
+    SAVE_REPEAT(chi_T);
+    return 0;
   }
 
-  int rhs(BoutReal time) {
+  int rhs(BoutReal /*time*/) override {
+    mesh->communicate(T, K);
+    chi_T = 0.0;
 
-	// Communicate variables
-	mesh->communicate(T, K);
+    // --- Case 1: sigma = 0 → purely local diffusivity
+    if (sigma == 0.0) {
+      chi_T = tau_ac * K;
 
-    // Reset chi_T to zero
-  chi_T = 0.0;
+    // --- Case 2: sigma > 0 → Gaussian-weighted averaging
+    } else {
+      for (int ix = 0; ix < mesh->LocalNx; ++ix) {
+        const BoutReal xi = mesh->GlobalX(ix);
+        BoutReal wsum = 0.0;
+        BoutReal acc  = 0.0;
 
-    // Compute chi_T(x) via Gaussian convolution of K
-    for (int ix = 0; ix < mesh->LocalNx; ++ix) {
-        BoutReal x_i = mesh->GlobalX(ix);
-        BoutReal sum = 0.0;
-  
         for (int jx = 0; jx < mesh->LocalNx; ++jx) {
-          BoutReal x_j = mesh->GlobalX(jx);
-          BoutReal dx = x_i - x_j;
-  
-          BoutReal weight = gaussian(dx, Delta);
-          sum += K(jx, 0, 0) * weight;
-        }
-  
-        chi_T(ix, 0, 0) = tau_ac * sum;
-        chi_T = smooth_x(chi_T);  // This smooths the final chi_T field
+          const BoutReal xj = mesh->GlobalX(jx);
+          const BoutReal dx = xi - xj;
+          const BoutReal w  = gaussian(dx);
 
+          wsum += w;
+          acc  += w * K(jx, 0, 0);
+        }
+
+        const BoutReal Kavg = (wsum > 0.0) ? (acc / wsum) : 0.0;
+        chi_T(ix, 0, 0) = tau_ac * Kavg;
       }
 
-    // Evolve temperature using divergence of (chi * grad T)
-    ddt(T) = FDDX(chi_T, DDX(T)) + chi_not * D2D2X(T);
+      chi_T = smooth_x(chi_T);
+    }
 
-    // Evolve kinetic energy using buoyancy and nonlinear damping
-    ddt(K) = FDDX(chi_T, DDX(K)) - g* chi_T *DDX(T) + gamma*K - Kc*pow(K,1.5);
+    // Add background diffusivity
+    chi = chi_T + chi_not;
 
-	return 0;
+    // --- Evolve temperature and kinetic energy ---
+    ddt(T) = FDDX(chi, DDX(T));
+    ddt(K) = beta * FDDX(chi_T, DDX(K))
+           - g * chi_T * DDX(T)
+           + gamma * K
+           - Kc * pow(K, 1.5);
+
+    return 0;
   }
 };
 
-// Define a main() function
 BOUTMAIN(HW);
