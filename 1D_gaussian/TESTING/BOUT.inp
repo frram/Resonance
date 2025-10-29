@@ -14,6 +14,12 @@ dz = 1.
 
 [hw]
 
+# choose ONE path at a time:
+sigma = 0.0        # 0 → disable Gaussian path (use PDE/local)
+lambda_chi = 1.0e-2  # enable PDE smoother with this influence length
+helm_iters = 50
+helm_tol   = 1e-10
+
 chi_not = 1e-5
 # Delta = 1/7    # Not used, but spacing between cells
 g = 1.0e0
@@ -21,7 +27,6 @@ tau_ac = 1.0e1
 gamma = 1.0e-2
 Kc = 1.0e-1
 beta = 1.0e-3
-sigma = 1e-2
 
 [T]
 A = 1.0

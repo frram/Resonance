@@ -1,0 +1,52 @@
+timestep = 1.0e-1
+nout = 6000
+MYG = 0
+
+[mesh]
+nx = 520
+ny = 1
+nz = 1
+dy = 1.
+dz = 1.
+
+[hw]
+# Nonlocal knobs
+sigma = 0.0         # 0 + 0 -> LOCAL chi_T = tau_ac * K
+lambda_chi = 0.0
+helm_iters = 50
+helm_tol   = 1.0e-10
+
+# Transport params
+chi_not = 1e-5
+g       = 1.0
+tau_ac  = 10.0
+gamma   = 1.0e-2
+Kc      = 1.0e-1
+beta    = 1.0e-3
+
+# >>> TRUE fixed-flux controls <<<
+use_true_fixed_flux = true
+Qin  = 1.0     # heat IN at x = 0 (positive into domain)
+Qout = 1.0     # heat OUT at x = 1 (positive out of domain)
+
+[T]
+A = 1.0
+function = A * x
+bndry_all = none     # let the code set ghost cells for true fixed-flux
+evolve_bndry = true  # allow evolution at boundary cells
+
+# bndry_xin = constgradien(A)
+# bndry_xout = constgradient(A)
+
+[K]
+w = 0.04
+p = 6
+function = (
+  exp(-((x-1/7)/w)^p) +
+  exp(-((x-2/7)/w)^p) +
+  exp(-((x-3/7)/w)^p) +
+  exp(-((x-4/7)/w)^p) +
+  exp(-((x-5/7)/w)^p) +
+  exp(-((x-6/7)/w)^p)
+) / 1.0
+bndry_all = neumann
