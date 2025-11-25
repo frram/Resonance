@@ -29,7 +29,7 @@ Kc = 1.0e-1
 beta = 1.0e-3
 
 [T]
-A = 1.0
+A = 0.1
 function = A* x
 bndry_xin = constgradient(A)
 bndry_xout = constgradient(A)
