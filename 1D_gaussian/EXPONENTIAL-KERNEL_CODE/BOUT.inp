@@ -1,0 +1,49 @@
+# timestep = 1e-2
+# nout = 20000
+timestep = 1e-1
+nout = 1000
+
+MYG = 0
+
+[mesh]
+nx = 520
+ny = 1
+nz = 1
+dx = 1.0
+dy = 1.0
+dz = 1.0
+
+[hw]
+chi_not   = 1e-5
+g         = 1.0
+tau_ac    = 1.0e1
+gamma     = 0.0
+Kc        = 0.1
+beta      = 0.0
+
+lambda_chi = 0.02 # Change for each run: 002, 0.05, 0.08, 0.12, 0.17, 0.25, 0.33
+helm_iters = 100
+
+
+[T]
+A = 1.0e-1
+function     = A * x
+bndry_xin    = constgradient(A)
+bndry_xout   = constgradient(A)
+evolve_bndry = true
+
+[K]
+w = 0.04
+p = 6
+function = (
+	exp(-((x-1/7)/w)^p) + 
+	exp(-((x-2/7)/w)^p) + 
+	exp(-((x-3/7)/w)^p) + 
+	exp(-((x-4/7)/w)^p) + 
+	exp(-((x-5/7)/w)^p) + 
+	exp(-((x-6/7)/w)^p)
+)
+bndry_all = neumann
+evolve_bndry = true
+
+
