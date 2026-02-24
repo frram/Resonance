@@ -1,0 +1,71 @@
+# BOUT.inp for PhiZonalTK with Lorentzian shear-suppressed chiT
+timestep = 1e-1
+nout = 1000
+
+[mesh]
+nx = 520
+ny = 256
+nz = 1
+dx = 1.0
+dy = 1.0
+dz = 1.0
+
+[hw]
+# Transport closure: chiT = tau_ac * K * 1/(1 + (S/S_star)^2)
+chi0            = 1e-5
+tau_ac          = 1.0
+S_star          = 1.0
+shear_suppress  = true
+
+# phi dynamics
+alpha   = 1.0
+nu_phi  = 0.5
+D_phi   = 1e-3
+
+# mean flow dynamics
+mu_U    = 0.1
+nu_U    = 1e-5
+
+# Reynolds stress efficiency
+C_R     = 1.0
+
+# optional tiny deterministic forcing (0 disables)
+eps_noise = 0.0
+
+[T]
+A = 1.0e-1
+function     = A * x
+bndry_xin    = constgradient(A)
+bndry_xout   = constgradient(A)
+evolve_bndry = true
+
+[U]
+function = 0.0
+bndry_all = neumann
+evolve_bndry = true
+
+[phi]
+w  = 0.04
+p  = 2
+ky = 6.283185307179586   # 2*pi*1
+
+# phi(x,y,0) = sum_j exp(-((x-xj)/w)^2) * cos(ky*y)
+function = (
+  ( exp(-((x-1/7)/w)^p) +
+    exp(-((x-2/7)/w)^p) +
+    exp(-((x-3/7)/w)^p) +
+    exp(-((x-4/7)/w)^p) +
+    exp(-((x-5/7)/w)^p) +
+    exp(-((x-6/7)/w)^p) )
+  * cos(ky*y)
+)
+
+# x Neumann
+bndry_xin  = neumann
+bndry_xout = neumann
+
+# y periodic
+bndry_yin  = periodic
+bndry_yout = periodic
+
+evolve_bndry = true
