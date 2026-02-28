@@ -1,10 +1,17 @@
-# BOUT.inp for PhiZonalTK (shear self-consistent)
-#
-# Target: final time ~ 600 with fewer outputs
-# total simulated time ~= nout * timestep
-# -> nout = 200, timestep = 3.0 gives t_final ~ 600
-timestep = 3.0
-nout = 200
+#############################################
+# resonance_shear-sc_01 : long run
+# t_final = 600, only 10 dumps (every 60 steps)
+#############################################
+
+timestep = 1.0
+nout     = 10
+
+# Keep Y guard cells since we take y-derivatives / y-averages
+MYG = 2
+
+[solver]
+output_step = 60
+
 
 [mesh]
 nx = 520
@@ -14,54 +21,62 @@ dx = 1.0
 dy = 1.0
 dz = 1.0
 
+
 [hw]
-chi0            = 1e-5
-tau_ac          = 1.0
-S_star          = 1.0
-shear_suppress  = true
+chi0           = 1e-5
+tau_ac         = 10.0
+S_star         = 1.0
+shear_suppress = true
 
-alpha   = 1.0
-nu_phi  = 0.5
-D_phi   = 1e-3
+alpha          = 6.0
+nu_phi         = 0.5
+D_phi          = 0.001
 
-mu_U    = 0.1
-nu_U    = 1e-5
+mu_U           = 0.1
+nu_U           = 1e-5
 
-C_R     = 1.0
-eps_noise = 0.0
+C_R            = 1.0
+eps_noise      = 0.0
 
-# Output control: phi is large; keep off for most runs
-save_phi = false
+# For long run: don't dump phi (still evolves!)
+save_phi       = false
+
 
 [T]
-A = 1.0e-1
+A            = 1.0e-1
 function     = A * x
 bndry_xin    = constgradient(A)
 bndry_xout   = constgradient(A)
 evolve_bndry = true
 
+
 [U]
-function = 0.0
-bndry_all = neumann
+function     = 0.0
+bndry_all    = neumann
 evolve_bndry = true
 
+
+#############################################
+# phi IC (your working version)
+# NOTE: empirically in your setup:
+#   cos(y) behaves like cos(2*pi*y_normalized)
+# so ky=1.0 gives the pattern you want.
+#############################################
 [phi]
-w  = 0.04
-p  = 2
-ky = 6.283185307179586   # 2*pi*1
+phi0  = 1.414
+w     = 0.04
+p     = 6.0
+ky    = 1.0
 
-# Alternating-sign Gaussian "cells" in x, modulated by cos(ky*y)
-# phi(x,y,0) = [ +G1 -G2 +G3 -G4 +G5 -G6 ] * cos(ky*y)
-function = (
-  ( + exp(-((x-1/7)/w)^p)
-    - exp(-((x-2/7)/w)^p)
-    + exp(-((x-3/7)/w)^p)
-    - exp(-((x-4/7)/w)^p)
-    + exp(-((x-5/7)/w)^p)
-    - exp(-((x-6/7)/w)^p) )
-  * cos(ky*y)
-)
+function = phi0 * (
+    exp( -abs( (x - 1.0/7.0)/w )^p )
+  - exp( -abs( (x - 2.0/7.0)/w )^p )
+  + exp( -abs( (x - 3.0/7.0)/w )^p )
+  - exp( -abs( (x - 4.0/7.0)/w )^p )
+  + exp( -abs( (x - 5.0/7.0)/w )^p )
+  - exp( -abs( (x - 6.0/7.0)/w )^p )
+) * cos( ky * y )
 
-bndry_xin  = neumann
-bndry_xout = neumann
-evolve_bndry = true
+bndry_xin     = neumann
+bndry_xout    = neumann
+evolve_bndry  = true

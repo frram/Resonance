@@ -1,4 +1,6 @@
+// resonance_shear-sc_01/hw.cxx
 // PhiZonalTK_symmetricCR_shear.cxx
+
 #include <bout/derivs.hxx>
 #include <bout/physicsmodel.hxx>
 #include <cmath>
@@ -6,38 +8,35 @@
 class PhiZonalTK : public PhysicsModel {
 private:
   // Evolved fields
-  Field3D T;      // mean profile
-  Field3D U;      // zonal flow
-  Field3D phi;    // fluctuations (x,y)
+  Field3D T;      // mean scalar (effectively 1D in x, but stored on mesh)
+  Field3D U;      // zonal flow (1D in x)
+  Field3D phi;    // fluctuations (2D in x,y)
 
-  // Diagnostics
+  // Diagnostics (stored as Field3D, typically y-uniform after y-avg)
   Field3D ux, uy;     // ExB velocities from phi
-  Field3D Rxy;        // y-averaged Reynolds stress (unscaled)
-  Field3D Kdiag;      // y-averaged turbulence intensity <|grad phi|^2>_y
+  Field3D Rxy;        // y-averaged Reynolds stress
+  Field3D Kdiag;      // y-averaged turbulence intensity proxy
   Field3D S;          // shear rate dU/dx
   Field3D chiT;       // turbulent diffusivity
   Field3D chi;        // total diffusivity
 
-  // Extra diagnostics for "phi distortion" without saving full phi
   Field3D phi2;       // <phi^2>_y
   Field3D kx2;        // <(dphi/dx)^2>_y / <phi^2>_y
   Field3D ky2;        // <(dphi/dy)^2>_y / <phi^2>_y
 
   // Parameters
   BoutReal chi0;                 // baseline diffusivity
-  BoutReal tau_ac;               // chiT = tau_ac * K * suppression
+  BoutReal tau_ac;               // chiT = tau_ac * Kdiag * suppression
   BoutReal S_star;               // shear suppression scale
   bool shear_suppress;           // apply Lorentzian suppression?
-  BoutReal alpha;                // gradient-drive coefficient in phi eqn
+  BoutReal alpha;                // coupling strength in phi equation (simple drive)
   BoutReal nu_phi, D_phi;        // phi damping + diffusion
   BoutReal mu_U, nu_U;           // U damping + viscosity
   BoutReal C_R;                  // symmetric coupling coefficient
-  BoutReal eps_noise;            // optional tiny symmetry-breaking forcing
+  BoutReal eps_noise;            // small deterministic forcing to break perfect symmetry
+  bool save_phi;                 // whether to save phi itself
 
-  // Output control
-  bool save_phi;                 // optionally write full phi to output?
-
-  // y-average: returns field constant in y (and z) but stored as Field3D
+  // y-average: returns a field constant in y (and z) but stored as Field3D
   Field3D yavg(const Field3D& f) {
     Field3D out = 0.0;
 
@@ -83,23 +82,24 @@ protected:
     OPTION(opt, mu_U, 0.1);
     OPTION(opt, nu_U, 1e-5);
 
-    // Symmetric coupling (energy-consistent exchange)
+    // Symmetric coupling
     OPTION(opt, C_R, 1.0);
 
     // Optional deterministic symmetry-breaking forcing (0 disables)
     OPTION(opt, eps_noise, 0.0);
 
-    // Output control (default: don't save the big 2D phi field)
+    // Output control
     OPTION(opt, save_phi, false);
 
     SOLVE_FOR(T, U, phi);
 
-    // Save diagnostics (small-ish / useful)
+    // Always save key diagnostics
     SAVE_REPEAT(chi);
     SAVE_REPEAT(chiT);
     SAVE_REPEAT(Kdiag);
     SAVE_REPEAT(Rxy);
     SAVE_REPEAT(S);
+
     SAVE_REPEAT(phi2);
     SAVE_REPEAT(kx2);
     SAVE_REPEAT(ky2);
@@ -108,7 +108,7 @@ protected:
     SAVE_REPEAT(U);
     SAVE_REPEAT(T);
 
-    // Optionally save full phi (large!)
+    // Save phi only if requested
     if (save_phi) {
       SAVE_REPEAT(phi);
     }
@@ -129,31 +129,22 @@ protected:
     Rxy = yavg(ux * uy);
 
     // ------------------------------------------------------------
-    // 2) Derivatives of phi and turbulence intensity
+    // 2) Turbulence intensity proxy:
+    //    Kdiag = <(dphi/dx)^2 + (dphi/dy)^2>_y
     // ------------------------------------------------------------
     Field3D dphix = DDX(phi);
     Field3D dphiy = DDY(phi);
 
-    // K = <|grad phi|^2>_y
-    Kdiag = yavg(dphix*dphix + dphiy*dphiy);
+    const Field3D dphix2_y = yavg(dphix * dphix);
+    const Field3D dphiy2_y = yavg(dphiy * dphiy);
 
-    // ------------------------------------------------------------
-    // 2b) Extra "distortion" diagnostics without saving full phi
-    //     phi2 = <phi^2>_y
-    //     kx2  = <(dphi/dx)^2>_y / <phi^2>_y
-    //     ky2  = <(dphi/dy)^2>_y / <phi^2>_y
-    // ------------------------------------------------------------
-    phi2 = yavg(phi*phi);
+    Kdiag = dphix2_y + dphiy2_y;
 
-    Field3D dphix2 = yavg(dphix*dphix);
-    Field3D dphiy2 = yavg(dphiy*dphiy);
-
-    // avoid division by zero
-    const BoutReal floor_val = 1e-30;
-    Field3D denom = phi2 + floor_val;
-
-    kx2 = dphix2 / denom;
-    ky2 = dphiy2 / denom;
+    // Extra diagnostics
+    phi2 = yavg(phi * phi);
+    const BoutReal tiny = 1e-30;
+    kx2 = dphix2_y / (phi2 + tiny);
+    ky2 = dphiy2_y / (phi2 + tiny);
 
     // ------------------------------------------------------------
     // 3) Shear rate S = dU/dx
@@ -162,7 +153,7 @@ protected:
 
     // ------------------------------------------------------------
     // 4) Turbulent diffusivity with optional Lorentzian suppression
-    //     chiT = tau_ac * K * 1/(1 + (S/S_star)^2)
+    //    chiT = tau_ac * Kdiag * 1/(1 + (S/S_star)^2)
     // ------------------------------------------------------------
     Field3D suppress = 1.0;
     if (shear_suppress) {
@@ -175,18 +166,17 @@ protected:
     mesh->communicate(chi);
 
     // ------------------------------------------------------------
-    // 5) phi equation:
-    //     dphi/dt + C_R * U dphi/dy = alpha (dT/dx) phi - nu_phi phi + D_phi Laplacian(phi)
+    // 5) phi equation
     // ------------------------------------------------------------
     Field3D Tx = DDX(T);
 
     ddt(phi) =
-        - (C_R * U) * DDY(phi)
-        + alpha * Tx * phi
+        - (C_R * U) * DDY(phi)               // shear advection
+        + alpha * Tx * phi                   // simple gradient-coupled growth/decay
         - nu_phi * phi
         + D_phi * (D2DX2(phi) + D2DY2(phi));
 
-    // optional tiny deterministic seed (prevents perfect symmetry locking)
+    // Optional deterministic seed
     if (eps_noise > 0.0) {
       for (int ix = mesh->xstart; ix <= mesh->xend; ++ix) {
         for (int iy = mesh->ystart; iy <= mesh->yend; ++iy) {
@@ -197,14 +187,12 @@ protected:
     }
 
     // ------------------------------------------------------------
-    // 6) U equation:
-    //     dU/dt = - C_R * d/dx(<ux uy>) - mu_U U + nu_U d2U/dx2
+    // 6) U equation
     // ------------------------------------------------------------
     ddt(U) = - C_R * DDX(Rxy) - mu_U * U + nu_U * D2DX2(U);
 
     // ------------------------------------------------------------
-    // 7) T equation:
-    //     dT/dt = d/dx( chi dT/dx )
+    // 7) T equation: 1D diffusion with variable diffusivity
     // ------------------------------------------------------------
     ddt(T) = FDDX(chi, DDX(T));
 
