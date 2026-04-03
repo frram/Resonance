@@ -39,7 +39,8 @@ C_R            = 1.0
 eps_noise      = 0.0
 
 # For long run: don't dump phi (still evolves!)
-save_phi       = false
+# I believe I still need to enable this in order for sim to run correctly!
+save_phi       = true
 
 
 [T]
