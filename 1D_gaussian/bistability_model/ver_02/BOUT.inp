@@ -1,0 +1,50 @@
+timestep = 1.0
+nout = 200
+
+MYG = 0
+
+[solver]
+output_step = 40
+
+[mesh]
+nx = 520
+ny = 1
+nz = 1
+
+dy = 1.
+dz = 1.
+
+[hw]
+chi_not = 1e-5
+Delta = 0.04
+g = -1.0e-1
+tau_ac = 1e1
+gamma = 0.0
+Kc = 1e-1
+beta = 0.0
+
+# Rollover parameters for chi_T
+Gc = 1.0
+p_roll = 2.0
+
+[T]
+A = 1.0e0
+function = A * x
+bndry_xin = constgradient(A)
+bndry_xout = constgradient(A)
+evolve_bndry = true
+
+[K]
+w = 0.02
+p = 2
+K0 = 1.0
+function = K0 * (
+    exp(-((x-1/7)/w)^p) +
+    exp(-((x-2/7)/w)^p) +
+    exp(-((x-3/7)/w)^p) +
+    exp(-((x-4/7)/w)^p) +
+    exp(-((x-5/7)/w)^p) +
+    exp(-((x-6/7)/w)^p)
+)
+bndry_all = neumann
+evolve_bndry = true
