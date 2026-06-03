@@ -1,0 +1,73 @@
+timestep = 1.0
+nout = 500
+
+MYG = 0
+
+[solver]
+output_step = 3
+
+[mesh]
+
+nx = 520
+ny = 1
+nz = 1
+
+dy = 1.
+dz = 1.
+
+[hw]
+
+chi_not = 1e-5
+
+g       = -1.0e-1
+tau_ac  = 1e1
+gamma   = 0.0
+Kc      = 1e-1
+beta    = 1.25
+
+# Reynolds stress strength
+C_R = 1.0
+
+# Mean-flow damping + viscosity
+mu_U = 0.1
+nu_U = 1e-5
+
+
+[T]
+A = 0.009
+function = A * x
+bndry_xin = constgradient(A)
+bndry_xout = constgradient(A)
+evolve_bndry = true
+
+
+[K]
+w = 0.02
+p = 2
+K0 = 1.0
+
+function = K0 * (
+    exp(-((x-1/7)/w)^p) +
+    exp(-((x-2/7)/w)^p) +
+    exp(-((x-3/7)/w)^p) +
+    exp(-((x-4/7)/w)^p) +
+    exp(-((x-5/7)/w)^p) +
+    exp(-((x-6/7)/w)^p)
+)
+
+bndry_all = neumann
+evolve_bndry = true
+
+
+[U]
+function = 0.0
+bndry_all = neumann
+evolve_bndry = true
+
+
+[theta]
+# theta0 = atan(kx/ky). For old kx=ky=1, theta0=pi/4.
+theta0 = 0.7853981633974483
+function = theta0
+bndry_all = neumann
+evolve_bndry = true

@@ -6,7 +6,7 @@ class HW : public PhysicsModel {
 private:
 
   Field3D T, K;
-  Field3D U, kx;
+  Field3D U, theta;
 
   Field3D chi_T, chi;
 
@@ -23,14 +23,10 @@ private:
 
   // Reynolds stress parameters
   BoutReal C_R;
-  BoutReal ky_const;
 
   // Mean flow damping + viscosity
   BoutReal mu_U;
   BoutReal nu_U;
-
-  // Energy-consistent transfer coefficient
-  BoutReal alpha_RS;
 
 protected:
 
@@ -47,20 +43,17 @@ protected:
     OPTION(options, beta, 1e-1);
 
     OPTION(options, C_R, 1.0);
-    OPTION(options, ky_const, 1.0);
 
     OPTION(options, mu_U, 0.1);
     OPTION(options, nu_U, 1e-5);
 
-    OPTION(options, alpha_RS, 1.0);
-
-    SOLVE_FOR(T, K, U, kx);
+    SOLVE_FOR(T, K, U, theta);
 
     SAVE_REPEAT(chi_T);
     SAVE_REPEAT(chi);
 
     SAVE_REPEAT(U);
-    SAVE_REPEAT(kx);
+    SAVE_REPEAT(theta);
 
     SAVE_REPEAT(S);
     SAVE_REPEAT(Rxy);
@@ -70,7 +63,7 @@ protected:
 
   int rhs(BoutReal time) override {
 
-    mesh->communicate(T, K, U, kx);
+    mesh->communicate(T, K, U, theta);
 
     // -----------------------------------------
     // Mean shear
@@ -104,10 +97,17 @@ protected:
     mesh->communicate(chi);
 
     // -----------------------------------------
-    // Reynolds stress
+    // Reynolds stress using bounded angle closure
+    //
+    // theta = atan(kx / ky)
+    //
+    // kx ky / (kx^2 + ky^2)
+    //     = 0.5 * sin(2 theta)
+    //
+    // Therefore |Rxy| <= 0.5 * C_R * K
     // -----------------------------------------
 
-    Rxy = C_R * kx * ky_const * K / (pow(kx,2) + pow(ky,2));
+    Rxy = 0.5 * C_R * K * sin(2.0 * theta);
 
     mesh->communicate(Rxy);
 
@@ -135,9 +135,11 @@ protected:
 
     // -----------------------------------------
     // Reynolds-stress energy transfer
+    //
+    // alpha_RS is fixed to 1 for energy consistency.
     // -----------------------------------------
 
-    Field3D transfer_RS = alpha_RS * Rxy * S;
+    Field3D transfer_RS = Rxy * S;
 
     // -----------------------------------------
     // Kinetic energy equation
@@ -162,12 +164,19 @@ protected:
         + nu_U * D2DX2(U);
 
     // -----------------------------------------
-    // Eikonal equation
+    // Bounded angle equation
+    //
+    // kx = ky tan(theta)
+    // d_t kx = ky sec^2(theta) d_t theta
+    // original: d_t kx = - ky S
+    //
+    // Therefore:
+    // d_t theta = - S cos^2(theta)
     // -----------------------------------------
 
-    ddt(kx)
+    ddt(theta)
       =
-        - ky_const * S;
+        - S * pow(cos(theta), 2);
 
     return 0;
   }
